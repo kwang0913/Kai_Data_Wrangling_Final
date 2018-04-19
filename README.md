@@ -1,4 +1,3 @@
-# Kai_Data_Wrangling_Final
-A line I wrote on my computer
-Hello
-haha
+# Kai_Final
+This is Kailong's Final project of Spring 2018. \n
+This is used for both Data Wrangling and Convex Optimization courses. 
