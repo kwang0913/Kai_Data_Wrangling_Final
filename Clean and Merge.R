@@ -94,7 +94,7 @@ citibike2015 <-
     citibike201512
   )
 
-#2016
+# 2016
 citibike201601$starttime  <- citibike201601$starttime %>% mdy_hms()
 citibike201601$stoptime   <- citibike201601$stoptime  %>% mdy_hms()
 citibike201602$starttime  <- citibike201602$starttime %>% mdy_hms()
