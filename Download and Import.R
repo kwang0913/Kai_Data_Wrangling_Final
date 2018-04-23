@@ -18,7 +18,7 @@ fileNames <- paste0(yearMonth,
                     )
 ) 
 
-#Write function to download, unzip, and remove zip files  
+# Write function to download, unzip, and remove zip files  
 saveTripData <- function(fileName, baseURL){
   fileURL <- paste0(baseURL, fileName)
   download.file(url = fileURL, destfile = fileName)
@@ -34,7 +34,7 @@ future_map2(fileNames, baseURL, saveTripData)
 # if your computer doesn't support such high volumn computation
 #map2(fileNames, baseURL, saveTripData) 
 
-#Import csv files
+# Import csv files
 temp <- list.files(pattern="*.csv")
 tempnames <- temp %>% str_sub(1,7) %>% make.names() %>% str_replace_all("X|[.]","")
 temp %>% setNames(paste0("citibike", tempnames)) %>% future_map(read.csv) %>% list2env(envir = .GlobalEnv)
