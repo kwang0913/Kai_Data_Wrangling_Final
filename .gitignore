@@ -1,3 +1,7 @@
 .Rhistory
 citibike.RData
 *.csv
+df.RData
+*.pdf
+*.pptx
+api-keys.R
