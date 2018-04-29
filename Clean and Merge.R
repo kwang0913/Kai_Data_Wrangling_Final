@@ -183,4 +183,37 @@ dbWriteTable(conn = citi, name = "citibike2015", value = citibike2015, row.names
 dbWriteTable(conn = citi, name = "citibike2016", value = citibike2016, row.names = FALSE)
 dbWriteTable(conn = citi, name = "citibike2017", value = citibike2017, row.names = FALSE)
 
+# Above Datasets contain 15 variables each, only necessary variables would be selected to do visualization.
+# Above is built for future usage.
+citibike2013_df <- citibike2013 %>% select(starttime, stoptime, 
+                                           start.station.latitude, start.station.longitude,
+                                           end.station.latitude, end.station.longitude,
+                                           usertype, gender)
+citibike2014_df <- citibike2014 %>% select(starttime, stoptime, 
+                                           start.station.latitude, start.station.longitude,
+                                           end.station.latitude, end.station.longitude,
+                                           usertype, gender)
+citibike2015_df <- citibike2015 %>% select(starttime, stoptime, 
+                                           start.station.latitude, start.station.longitude,
+                                           end.station.latitude, end.station.longitude,
+                                           usertype, gender)
+citibike2016_df <- citibike2016 %>% select(starttime, stoptime, 
+                                           start.station.latitude, start.station.longitude,
+                                           end.station.latitude, end.station.longitude,
+                                           usertype, gender)
+citibike2017_df <- citibike2017 %>% select(starttime, stoptime, 
+                                           start.station.latitude, start.station.longitude,
+                                           end.station.latitude, end.station.longitude,
+                                           usertype, gender)
+
+# Combine All Dataset in one
+citibike_df <- bind_rows(citibike2013_df, citibike2014_df, citibike2015_df, citibike2016_df, citibike2017_df)
+
+# Adjust Date variable
+citibike_df$hour <- citibike_df$starttime %>% hour()
+citibike_df$starttime <- citibike_df$starttime %>% as.Date()
+citibike_df$stoptime <- citibike_df$stoptime %>% as.Date()
+
+dbWriteTable(conn = citi, name = "df", value = citibike_df, row.names = FALSE)
+
 dbDisconnect(citi)
