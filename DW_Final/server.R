@@ -41,6 +41,7 @@ function(input, output) {
     nend <- df2 %>%  group_by(end.station.latitude, end.station.longitude) %>% summarise(nend = n())
     dfmap <- full_join(nstart, nend, by = c("start.station.latitude" = "end.station.latitude",
                                             "start.station.longitude" = "end.station.longitude")) %>%
+      na.omit() %>% 
       mutate(abs_change_perc = round(100*(nend-nstart)/nstart, 1)) 
     dfmap$rank <- dfmap$abs_change_perc %>% rank(ties.method = "first") 
     

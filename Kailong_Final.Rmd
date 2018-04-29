@@ -1,0 +1,234 @@
+---
+title: "Kailong Final"
+author: "Kailong Wang"
+date: "April 29, 2018"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r include=FALSE}
+library(httr)
+library(jsonlite)
+library(tidyverse)
+```
+
+## Real Time Data
+
+Citibike provides a json file containing all system information <http://gbfs.citibikenyc.com/gbfs/gbfs.json>.  
+You just need to manipulate it a little.  
+The Third list is our data.
+
+```{r}
+url <- "http://gbfs.citibikenyc.com/gbfs/gbfs.json" 
+url %>% GET() %>% content(as = "text") %>% fromJSON() %>% glimpse()
+```
+
+---
+
+The first data frame is in English.
+
+```{r}
+url %>% GET() %>% content(as = "text") %>% fromJSON() %>% 
+  .[[3]] %>% glimpse()
+```
+---
+
+```{r}
+url %>% GET() %>% content(as = "text") %>% fromJSON() %>% 
+  .[[3]] %>% .[[1]] %>% .[[1]] 
+```
+---
+
+- The order of table is changing.
+- We only need station data.
+
+```{r}
+url %>% GET() %>% content(as = "text") %>% fromJSON() %>% 
+  .[[3]] %>% .[[1]] %>% .[[1]] %>% 
+  .[str_detect(.[[1]],"station"), 2] %>% 
+  map(GET) %>% map(content, as = "text") %>% map(fromJSON) %>%
+  map(~.[[3]]) %>% map(~.[[1]]) %>% map(dim)
+```
+---
+
+Station_id is their common variable so join two table into one.
+
+```{r}
+url%>% GET() %>% content(as = "text") %>% 
+  fromJSON() %>% .[[3]] %>% .[[1]] %>% .[[1]] %>%
+  .[str_detect(.[[1]],"station"), 2] %>% 
+  map(GET) %>% map(content, as = "text") %>% map(fromJSON) %>%
+  map(~.[[3]]) %>% map(~.[[1]]) %>% plyr::join_all() %>% 
+  glimpse()
+```
+---
+
+Then we can use dplyr get whatever we need into Shiny app.
+
+## Historical Data
+
+Data is stored on <https://s3.amazonaws.com/tripdata/index.html> and embedded in ajax.  
+Rselenium should be the only way to script data but I fail to figure it out.  
+Instead I use a tricky way. First makeup files dates.
+
+```{r eval=FALSE}
+# Main directory for downloading data
+baseURL <- "https://s3.amazonaws.com/tripdata/"
+
+# Specific what date to download
+monthsToDownload <- 1:12
+yearMonth <- 2013:2017 %>% map(rep, 12) %>% 
+  map(paste0, ifelse(monthsToDownload < 10, 
+                     yes = paste0(0,monthsToDownload), 
+                     no = monthsToDownload)) %>% 
+  unlist() %>% .[-c(1:6)]
+```
+---
+
+Second makeup files download urls.
+
+```{r eval=FALSE}
+# Compound filenames
+fileNames <- paste0(yearMonth,
+                    ifelse(yearMonth < 201700, 
+                           yes = "-citibike-tripdata.zip", 
+                           no = "-citibike-tripdata.csv.zip"
+                    )
+) 
+
+# Write function to download, unzip, and remove zip files  
+saveTripData <- function(fileName, baseURL){
+  fileURL <- paste0(baseURL, fileName)
+  download.file(url = fileURL, destfile = fileName)
+  unzip(zipfile = fileName)
+  file.remove(fileName)
+}
+```
+---
+
+Third download files.
+
+```{r eval=FALSE}
+# To use parallel computing version of purrr
+library(furrr)
+plan(multiprocess)
+
+# Map function to all files
+future_map2(fileNames, baseURL, saveTripData)
+# if your computer doesn't support such high volumn computation
+map2(fileNames, baseURL, saveTripData) 
+
+# Import csv files
+temp <- list.files(pattern="*.csv")
+tempnames <- temp %>% str_sub(1,7) %>% make.names() %>% 
+  str_replace_all("X|[.]","")
+temp %>% setNames(paste0("citibike", tempnames)) %>% 
+  future_map(read.csv) %>% list2env(envir = .GlobalEnv)
+# if your computer doesn't support such high volumn computation
+temp %>% setNames(paste0("citibike", tempnames)) %>%
+  map(read.csv) %>% list2env(envir = .GlobalEnv)
+```
+
+## Data Cleaning
+
+- Be patient and do it one by one.
+- The raw file is 5.5 GB. What we need is 3.2 GB.
+- You can build a SQL sever locally to save RAM.
+
+```{r eval=FALSE}
+library(sqldf)
+citi <- dbConnect(SQLite(), dbname="Final.sqlite")
+
+dbWriteTable(conn = citi, name = "citibike2013", value = citibike2013, row.names = FALSE)
+dbWriteTable(conn = citi, name = "citibike2014", value = citibike2014, row.names = FALSE)
+dbWriteTable(conn = citi, name = "citibike2015", value = citibike2015, row.names = FALSE)
+dbWriteTable(conn = citi, name = "citibike2016", value = citibike2016, row.names = FALSE)
+dbWriteTable(conn = citi, name = "citibike2017", value = citibike2017, row.names = FALSE)
+
+dbWriteTable(conn = citi, name = "df", value = citibike_df, row.names = FALSE)
+
+dbDisconnect(citi)
+```
+
+## Shiny UI
+
+shinydashboard and semantic.dashboard provide various customize options to make shiny modernly. 
+Dashboard seperates UI into header, sider and body. You can add shiny elements in any of those.
+Besides, dashboard provides 3000+ icons and many themes.
+
+```{r eval=FALSE}
+library(shinydashboard)  #library(semantic.dashboard) 
+
+dashboardPage(
+  skin = "red",
+  header,
+  sider,
+  body
+)
+```
+
+## Shiny server
+
+- Leaflet customization
+- Points to Line function
+- See Shiny.app
+
+---
+```{r eval=FALSE}
+  # Create the map
+  output$realtime <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      setView(lng = -73.960, lat = 40.753, zoom = 13) 
+  })
+  # Incremental changes to the map
+  observe({
+    pal <- colorNumeric(palette=colorRampPalette(c("#FF6666","#66CC99"))(3), domain = realtime()$num)
+    #circles for staions
+    leafletProxy("realtime", data = realtime()) %>%
+      clearShapes() %>%
+      addCircles(~lon, ~lat,
+                 stroke = FALSE, fillOpacity = 1, color = ~pal(num), radius = 70, 
+                 popup = ~paste('<b><font color="Red">', 'Station: ', name, '</font></b><br/>',
+                                'Numbers: ', num, '<br/>') 
+      ) 
+  })
+```
+---
+
+```{r eval=FALSE}
+library(maptools)
+library(sp)
+points_to_line <- function(data, long, lat, id_field) {
+  
+  # Convert to SpatialPointsDataFrame
+  coordinates(data) <- c("long", "lat")
+  
+  # Split into a list by ID field
+  paths <- sp::split(data, data[[id_field]])
+  
+  sp_lines <- SpatialLines(list(Lines(list(Line(paths[[1]])), "line1")))
+  
+  for (p in 2:length(paths)) {
+    id <- paste0("line", as.character(p))
+    l <- SpatialLines(list(Lines(list(Line(paths[[p]])), id)))
+    sp_lines <- spRbind(sp_lines, l)
+  }
+  return(sp_lines)
+}
+
+```
+
+## Thank You!
+
+- Github: <https://github.com/kwang0913/Kai_Spring2018_Final.git>
+
+
+
