@@ -55,7 +55,7 @@ body <- dashboardBody(
     tabItem(tabName = "Realtime",
             fluidRow(
               box(background = "maroon",
-                radioButtons("type", "Type", selected = "capacity", inline = T,
+                radioButtons("type", "Type", inline = T,
                              choices = c("Capacity" = "capacity",
                                          "Avaliable Bikes" = "num_bikes_available")
                 )
