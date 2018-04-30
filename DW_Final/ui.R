@@ -27,15 +27,15 @@ body <- dashboardBody(
                          
                          h3("Station Explorer"),
                          
-                         selectInput("sex", "Gender", 
-                                     choices = c("Female" = 2, "Male" = 1, "Unkown" = 0),
-                                     selected = c(2, 1, 0),
-                                     multiple = TRUE),
+                         checkboxGroupInput("sex", "Gender", 
+                                            choices = c("Female" = 2, "Male" = 1, "Unkown" = 0),
+                                            selected = c(2, 1, 0)
+                         ),
                          
-                         selectInput("user", "User Type", 
-                                     choices = c("Customer", "Subscriber"),
-                                     selected = c("Customer", "Subscriber"),
-                                     multiple = TRUE),
+                         checkboxGroupInput("user", "User Type", 
+                                            choices = c("Customer", "Subscriber"),
+                                            selected = c("Customer", "Subscriber")
+                         ),
                          
                          sliderInput("hrs", h3("Hour Range"), min = 0, max = 23, 
                                      value = c(0, 23), animate = TRUE),
@@ -55,10 +55,10 @@ body <- dashboardBody(
     tabItem(tabName = "Realtime",
             fluidRow(
               box(background = "maroon",
-                radioButtons("type", "Type", inline = T,
-                             choices = c("Capacity" = "capacity",
-                                         "Avaliable Bikes" = "num_bikes_available")
-                )
+                  radioButtons("type", "Type", inline = T,
+                               choices = c("Capacity" = "capacity",
+                                           "Avaliable Bikes" = "num_bikes_available")
+                  )
               )
             ),
             
