@@ -1,0 +1,489 @@
+---
+title: "Kailong_final_Analysis"
+author: "Kailong"
+date: "April 4, 2018"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+# Load required packages
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(jsonlite)
+library(httr)
+library(sqldf)
+library(ggmap)
+library(ggpubr)
+library(corrplot)
+```
+
+# Get real time data.
+
+```{r eval=FALSE, include=FALSE}
+setwd("~/Final")
+
+url <- "http://gbfs.citibikenyc.com/gbfs/gbfs.json"
+
+RealTime <-
+  url %>% GET() %>% content(as = "text") %>% fromJSON() %>% .[[3]] %>% .[[1]] %>% .[[1]] %>% .[, 2] %>% 
+  map(GET) %>% map(content, as = "text") %>% map(fromJSON) %>% map(~.[[3]]) %>% map(~.[[1]]) 
+
+glimpse(RealTime[[1]])
+glimpse(RealTime[[2]])
+glimpse(RealTime[[3]])
+glimpse(RealTime[[4]])
+glimpse(RealTime[[5]])
+```
+
+# Connected to SQL to save RAM
+
+```{r}
+citi <- dbConnect(SQLite(), dbname="Final.sqlite")
+
+dbListTables(citi)
+citibike2014 <- tbl(citi, "citibike2014")
+citibike2015 <- tbl(citi, "citibike2015")
+citibike2016 <- tbl(citi, "citibike2016")
+citibike2017 <- tbl(citi, "citibike2017")
+
+nyc <- get_map("LOWER Manhattan", zoom = 12) 
+```
+
+# Analysis on weather and usage
+
+```{r}
+load("~/Final/citibike/citibikeoperation.RData")
+
+citibike_operation[, -1] %>% cor() %>% corrplot.mixed()
+
+# trip_lm <- lm(Daily_Trips ~ ., data = citibike_operation[, -c(1, 9, 10)])
+# summary(trip_lm)
+# 
+# miles_lm <- lm(Daily_Miles ~ ., data = citibike_operation[, -c(1, 8, 10)])
+# summary(miles_lm)
+# 
+# member_lm <- lm(New_Member ~ ., data = citibike_operation[, -c(1, 8, 9)])
+# summary(member_lm)
+```
+
+# Analysis on Start and End Station
+
+* 2014
+
+```{r eval=FALSE, include=FALSE}
+# Popular Route
+citi2014_long <- 
+  citibike2014 %>% 
+  select(tripduration, start.station.name, end.station.name, usertype,
+         start.station.latitude,start.station.longitude,end.station.latitude,end.station.longitude) %>% 
+  filter(tripduration > 2700) %>% group_by(usertype) %>% collect() %>% nest()
+
+citi2014_short <- 
+  citibike2014 %>% 
+  select(tripduration, start.station.name, end.station.name, usertype,
+         start.station.latitude,start.station.longitude,end.station.latitude,end.station.longitude) %>% 
+  filter(tripduration <= 2700) %>% group_by(usertype) %>% collect() %>% nest()
+
+citi2014_long$data %>% 
+  map(group_by, start.station.name, end.station.name，
+      start.station.latitude, start.station.longitude, 
+      end.station.latitude, end.station.longitude) %>% 
+  map(summarise, pop.route = n()) %>% 
+  map(arrange, desc(pop.route)) %>% map(head) 
+
+citi2014_short$data %>% 
+  map(group_by, start.station.name, end.station.name，
+      start.station.latitude, start.station.longitude, 
+      end.station.latitude, end.station.longitude) %>% 
+  map(summarise, pop.route = n()) %>% 
+  map(arrange, desc(pop.route)) %>% map(head) 
+
+# Low usage station
+citibike2014 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(start.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(desc(n.start.station)) %>%
+  head(10)
+
+citibike2014 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(end.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(desc(n.start.station)) %>%
+  head(10)
+
+citibike2014 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(start.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(n.start.station) %>%
+  head(10)
+
+citibike2014 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(end.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(n.start.station) %>%
+  head(10)
+```
+
+```{r}
+tempstart <- citibike2014 %>%
+  select(tripduration, usertype, start.station.latitude, start.station.longitude, 
+         end.station.latitude, end.station.longitude) %>%
+  collect() %>%
+  group_by(start.station.latitude,start.station.longitude) %>%
+  summarise(n.station = n()) %>%
+  arrange(desc(n.station)) %>%
+  head(10)
+
+tempend <- citibike2014 %>%
+  select(tripduration, usertype, start.station.latitude, start.station.longitude, 
+         end.station.latitude, end.station.longitude) %>%
+  collect() %>%
+  group_by(end.station.latitude,end.station.longitude) %>%
+  summarise(n.station = n()) %>%
+  arrange(desc(n.station)) %>%
+  head(10)
+
+ggmap(nyc) + geom_point(
+  data = tempstart,
+  aes(x = start.station.longitude, y = start.station.latitude, size = n.station),
+  color = "red", alpha = 0.5) + geom_point(
+  data = tempend,
+  aes(x = end.station.longitude, y = end.station.latitude, size = n.station),
+  color = "blue", alpha = 0.5) + theme(legend.position = "none")
+
+# + xlab("") + ylab("") + ggtitle("Pop Start Station in 2014")
+```
+
+* 2015
+
+```{r eval=FALSE, include=FALSE}
+# Popular Route
+citi2015_long <- 
+  citibike2015 %>% 
+  select(tripduration, start.station.name, end.station.name, usertype,
+         start.station.latitude,start.station.longitude,end.station.latitude,end.station.longitude) %>% 
+  filter(tripduration > 2700) %>% group_by(usertype) %>% collect() %>% nest()
+
+citi2015_short <- 
+  citibike2015 %>% 
+  select(tripduration, start.station.name, end.station.name, usertype,
+         start.station.latitude,start.station.longitude,end.station.latitude,end.station.longitude) %>% 
+  filter(tripduration <= 2700) %>% group_by(usertype) %>% collect() %>% nest()
+
+citi2015_long$data %>% 
+  map(group_by, start.station.name, end.station.name，
+      start.station.latitude, start.station.longitude, 
+      end.station.latitude, end.station.longitude) %>% 
+  map(summarise, pop.route = n()) %>% 
+  map(arrange, desc(pop.route)) %>% map(head) 
+
+citi2015_short$data %>% 
+  map(group_by, start.station.name, end.station.name，
+      start.station.latitude, start.station.longitude, 
+      end.station.latitude, end.station.longitude) %>% 
+  map(summarise, pop.route = n()) %>% 
+  map(arrange, desc(pop.route)) %>% map(head) 
+
+# Low usage station
+citibike2015 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(start.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(desc(n.start.station)) %>%
+  head(10)
+
+citibike2015 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(end.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(desc(n.start.station)) %>%
+  head(10)
+
+citibike2015 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(start.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(n.start.station) %>%
+  head(10)
+
+citibike2015 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(end.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(n.start.station) %>%
+  head(10)
+```
+
+```{r}
+tempstart <- citibike2015 %>%
+  select(tripduration, usertype, start.station.latitude, start.station.longitude, 
+         end.station.latitude, end.station.longitude) %>%
+  collect() %>%
+  group_by(start.station.latitude,start.station.longitude) %>%
+  summarise(n.station = n()) %>%
+  arrange(desc(n.station)) %>%
+  head(10)
+
+tempend <- citibike2015 %>%
+  select(tripduration, usertype, start.station.latitude, start.station.longitude, 
+         end.station.latitude, end.station.longitude) %>%
+  collect() %>%
+  group_by(end.station.latitude,end.station.longitude) %>%
+  summarise(n.station = n()) %>%
+  arrange(desc(n.station)) %>%
+  head(10)
+
+ggmap(nyc) + geom_point(
+  data = tempstart,
+  aes(x = start.station.longitude, y = start.station.latitude, size = n.station),
+  color = "red", alpha = 0.5) + geom_point(
+  data = tempend,
+  aes(x = end.station.longitude, y = end.station.latitude, size = n.station),
+  color = "blue", alpha = 0.5) + theme(legend.position = "none")
+
+# + xlab("") + ylab("") + ggtitle("Pop Start Station in 2014")
+```
+
+* 2016
+
+```{r eval=FALSE, include=FALSE}
+# Popular Route
+citi2016_long <- 
+  citibike2016 %>% 
+  select(tripduration, start.station.name, end.station.name, usertype,
+         start.station.latitude,start.station.longitude,end.station.latitude,end.station.longitude) %>% 
+  filter(tripduration > 2700) %>% group_by(usertype) %>% collect() %>% nest()
+
+citi2016_short <- 
+  citibike2016 %>% 
+  select(tripduration, start.station.name, end.station.name, usertype,
+         start.station.latitude,start.station.longitude,end.station.latitude,end.station.longitude) %>% 
+  filter(tripduration <= 2700) %>% group_by(usertype) %>% collect() %>% nest()
+
+citi2016_long$data %>% 
+  map(group_by, start.station.name, end.station.name，
+      start.station.latitude, start.station.longitude, 
+      end.station.latitude, end.station.longitude) %>% 
+  map(summarise, pop.route = n()) %>% 
+  map(arrange, desc(pop.route)) %>% map(head) 
+
+citi2016_short$data %>% 
+  map(group_by, start.station.name, end.station.name，
+      start.station.latitude, start.station.longitude, 
+      end.station.latitude, end.station.longitude) %>% 
+  map(summarise, pop.route = n()) %>% 
+  map(arrange, desc(pop.route)) %>% map(head) 
+
+# Low usage station
+citibike2016 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(start.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(desc(n.start.station)) %>%
+  head(10)
+
+citibike2016 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(end.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(desc(n.start.station)) %>%
+  head(10)
+
+citibike2016 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(start.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(n.start.station) %>%
+  head(10)
+
+citibike2016 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(end.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(n.start.station) %>%
+  head(10)
+```
+
+```{r}
+tempstart <- citibike2016 %>%
+  select(tripduration, usertype, start.station.latitude, start.station.longitude, 
+         end.station.latitude, end.station.longitude) %>%
+  collect() %>%
+  group_by(start.station.latitude,start.station.longitude) %>%
+  summarise(n.station = n()) %>%
+  arrange(desc(n.station)) %>%
+  head(10)
+
+tempend <- citibike2016 %>%
+  select(tripduration, usertype, start.station.latitude, start.station.longitude, 
+         end.station.latitude, end.station.longitude) %>%
+  collect() %>%
+  group_by(end.station.latitude,end.station.longitude) %>%
+  summarise(n.station = n()) %>%
+  arrange(desc(n.station)) %>%
+  head(10)
+
+ggmap(nyc) + geom_point(
+  data = tempstart,
+  aes(x = start.station.longitude, y = start.station.latitude, size = n.station),
+  color = "red", alpha = 0.5) + geom_point(
+  data = tempend,
+  aes(x = end.station.longitude, y = end.station.latitude, size = n.station),
+  color = "blue", alpha = 0.5) + theme(legend.position = "none")
+
+# + xlab("") + ylab("") + ggtitle("Pop Start Station in 2014")
+```
+
+* 2017
+
+```{r eval=FALSE, include=FALSE}
+# Popular Route
+citi2017_long <- 
+  citibike2017 %>% 
+  select(tripduration, start.station.name, end.station.name, usertype,
+         start.station.latitude,start.station.longitude,end.station.latitude,end.station.longitude) %>% 
+  filter(tripduration > 2700) %>% group_by(usertype) %>% collect() %>% nest()
+
+citi2017_short <- 
+  citibike2017 %>% 
+  select(tripduration, start.station.name, end.station.name, usertype,
+         start.station.latitude,start.station.longitude,end.station.latitude,end.station.longitude) %>% 
+  filter(tripduration <= 2700) %>% group_by(usertype) %>% collect() %>% nest()
+
+citi2017_long$data %>% 
+  map(group_by, start.station.name, end.station.name，
+      start.station.latitude, start.station.longitude, 
+      end.station.latitude, end.station.longitude) %>% 
+  map(summarise, pop.route = n()) %>% 
+  map(arrange, desc(pop.route)) %>% map(head) 
+
+citi2017_short$data %>% 
+  map(group_by, start.station.name, end.station.name，
+      start.station.latitude, start.station.longitude, 
+      end.station.latitude, end.station.longitude) %>% 
+  map(summarise, pop.route = n()) %>% 
+  map(arrange, desc(pop.route)) %>% map(head) 
+
+# Low usage station
+citibike2017 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(start.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(desc(n.start.station)) %>%
+  head(10)
+
+citibike2017 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(end.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(desc(n.start.station)) %>%
+  head(10)
+
+citibike2017 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(start.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(n.start.station) %>%
+  head(10)
+
+citibike2017 %>%
+  select(tripduration, start.station.name, end.station.name) %>%
+  collect() %>%
+  group_by(end.station.name) %>%
+  summarise(n.start.station = n()) %>%
+  arrange(n.start.station) %>%
+  head(10)
+```
+
+```{r}
+tempstart <- citibike2017 %>% filter(usertype == "Customer") %>% 
+  select(tripduration, usertype, start.station.latitude, start.station.longitude, 
+         end.station.latitude, end.station.longitude, start.station.name, end.station.name) %>%
+  #collect()
+  group_by(start.station.latitude,start.station.longitude, start.station.name) %>%
+  summarise(n.station = n()) %>%
+  arrange(desc(n.station)) 
+
+tempend <- citibike2017 %>% filter(usertype == "Customer") %>% 
+  select(tripduration, usertype, start.station.latitude, start.station.longitude, 
+         end.station.latitude, end.station.longitude, start.station.name, end.station.name) %>%
+  #collect()
+  group_by(end.station.latitude,end.station.longitude, end.station.name) %>%
+  summarise(n.station = n()) %>%
+  arrange(desc(n.station)) 
+
+ggmap(nyc) + geom_point(
+  data = tempstart[1:10,],
+  aes(x = start.station.longitude, y = start.station.latitude, size = n.station),
+  color = "red", alpha = 0.5) + geom_point(
+  data = tempend[1:10,],
+  aes(x = end.station.longitude, y = end.station.latitude, size = n.station),
+  color = "blue", alpha = 0.5) + theme(legend.position = "none") 
+
+# + xlab("") + ylab("") + ggtitle("Pop Start Station in 2014")
+
+tempDiff <- tempstart %>% left_join(tempend, by = c("start.station.name" = "end.station.name")) %>% 
+  mutate(diff = abs(n.station.x - n.station.y)) %>% 
+  select(start.station.name, diff) %>% 
+  arrange(desc(diff))
+
+ggmap(nyc) + geom_point(
+  data = tempDiff[1:10,],
+  aes(x = start.station.longitude, y = start.station.latitude, size = diff),
+  color = "brown", alpha = 0.5)
+
+tempDiff
+```
+
+# New Members
+
+```{r}
+citibike_operation$Year <- year(citibike_operation$DATE) 
+
+p1 <- citibike_operation %>% filter(Year == 2014) %>% .[-1, ] %>%
+  ggplot(aes(DATE, New_Members, color = New_Members)) + ylim(-5, 625) + xlab("") + geom_point() +
+  scale_colour_gradientn(colours = rainbow(7), limits = c(-5, 625)) + theme(legend.position = "none") 
+p2 <- citibike_operation %>% filter(Year == 2015) %>% 
+  ggplot(aes(DATE, New_Members, color = New_Members)) + xlab("") + ylab("") +
+  geom_point() + scale_colour_gradientn(colours = rainbow(7)) + theme(legend.position = "none") 
+p3 <- citibike_operation %>% filter(Year == 2016) %>% 
+  ggplot(aes(DATE, New_Members, color = New_Members)) + 
+  geom_point() + scale_colour_gradientn(colours = rainbow(7)) + theme(legend.position = "none") 
+p4 <- citibike_operation %>% filter(Year == 2017) %>% 
+  ggplot(aes(DATE, New_Members, color = New_Members)) + ylab("") +
+  geom_point() + scale_colour_gradientn(colours = rainbow(7)) + theme(legend.position = "none") 
+
+ggarrange(p1, p2, p3, p4, common.legend = TRUE, legend = "right")
+```
+
+
