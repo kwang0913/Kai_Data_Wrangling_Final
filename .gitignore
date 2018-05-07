@@ -1,7 +1,8 @@
 .Rhistory
 citibike.RData
-*.csv
 df.RData
+*.csv
 *.pdf
 *.pptx
 api-keys.R
+/DW_Final/rsconnect

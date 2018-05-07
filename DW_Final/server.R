@@ -8,6 +8,8 @@ library(sp)
 library(httr)
 library(jsonlite)
 
+load("test.RData")
+
 points_to_line <- function(data, long, lat, id_field) {
   
   # Convert to SpatialPointsDataFrame
