@@ -35,7 +35,7 @@ future_map2(fileNames, baseURL, saveTripData)
 #map2(fileNames, baseURL, saveTripData) 
 
 # Import csv files
-temp <- list.files(pattern="*.csv")
+temp <- list.files(pattern = "*.csv")
 tempnames <- temp %>% str_sub(1,7) %>% make.names() %>% str_replace_all("X|[.]","")
 temp %>% setNames(paste0("citibike", tempnames)) %>% future_map(read.csv) %>% list2env(envir = .GlobalEnv)
 # if your computer doesn't support such high volumn computation
