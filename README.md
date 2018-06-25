@@ -15,8 +15,8 @@ This shiny app borrows idea from https://github.com/summersuny/01shinyDemo
   
 ## May. 7th 2018  
 How to use:  
-a) Run 'Download and Import.R' to get raw dataset  
-b) Run 'Clean and Merge.R' to Clean dataset and build local SQL server  
+a) Run 'Download and Import.R' to get raw dataset.  
+b) Run 'Clean and Merge.R' to Clean dataset and build local SQL server.  
 c) Run code in DW_Final folder to see shiny.app result. The folder contains default small size test.Rdata. 
 If your machine support (RAM > 12GB), you can use data from step a&b without any problem.     
 d) Kailong_Final is a Rmarkdown file for presentation. This file can run independently.  
