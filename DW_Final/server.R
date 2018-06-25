@@ -10,10 +10,10 @@ library(jsonlite)
 
 load("test.RData")
 
-points_to_line <- function(data, long, lat, id_field) {
+points_to_line <- function(data, lng, lat, id_field) {
   
   # Convert to SpatialPointsDataFrame
-  coordinates(data) <- c("long", "lat")
+  coordinates(data) <- c("lng", "lat")
   
   # Split into a list by ID field
   paths <- sp::split(data, data[[id_field]])
@@ -65,12 +65,12 @@ function(input, output) {
         arrange(desc(nroute)) %>% 
         head(100) %>% ungroup() %>% mutate(route_id = rownames(.)) %>% 
         gather(measure, val, -route_id) %>% group_by(route_id) %>%
-        do(data.frame(   lat=c(.[["val"]][.[["measure"]] == "start.station.latitude"],
-                               .[["val"]][.[["measure"]] == "end.station.latitude"]),
-                         long = c(.[["val"]][.[["measure"]] == "start.station.longitude"],
-                                  .[["val"]][.[["measure"]] == "end.station.longitude"]))) %>% 
+        do(data.frame(   lat = c(.[["val"]][.[["measure"]] == "start.station.latitude"],
+                                 .[["val"]][.[["measure"]] == "end.station.latitude"]),
+                         lng = c(.[["val"]][.[["measure"]] == "start.station.longitude"],
+                                 .[["val"]][.[["measure"]] == "end.station.longitude"]))) %>% 
         as.data.frame() %>% 
-        points_to_line("long", "lat", "route_id") 
+        points_to_line("lng", "lat", "route_id") 
       
       return(y)
     } 
