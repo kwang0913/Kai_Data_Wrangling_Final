@@ -23,4 +23,7 @@ d) Kailong_Final is a Rmarkdown file for presentation. This file can run indepen
 e) Kailong_Final_Analysis is a Rmarkdown file which need to be run after step a&b.  
   
 ## June. 22nd 2018  
-[Shiny.app](https://kwang0913.shinyapps.io/DW_Final/)
+[Shiny.app](https://kwang0913.shinyapps.io/DW_Final/)  
+
+## July. 2nd 2018  
+Re-construct code in DW_Refresh folder. The code is easier to edit and customize than before. Function remains the same.
